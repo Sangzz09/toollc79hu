@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Lc79</title>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  
+  <script>
+    function redirectToIndex() {
+        window.location.replace('index.html');
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+        document.body.style.display = 'block';
+    });
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+    *{box-sizing:border-box;margin:0;padding:0; font-weight: 900 !important;}
+    body{
+      font-family:'Share Tech Mono',monospace;
+      background:radial-gradient(circle at 10% 10%, rgba(0,0,0,0.6), rgba(0,0,0,1));
+      color:#00ff00;height:100vh;overflow:hidden;
+      display: none;
+    }
+
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(135deg, #0052D4, #4364F7, #6FB1FC);
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 20px;
+      transition: opacity 0.3s ease;
+    }
+
+    #fullscreenIframe{position:fixed;inset:0;width:100%;height:100%;border:0;z-index:1;}
+
+    .panel, #predictionPopup, .footer-text { display: flex; }
+
+    .panel{
+      position:fixed;left:12px;top:12px;z-index:55;
+      display:flex;flex-direction:column;gap:8px;
+      width:178px;
+      font-weight: 900;
+    }
+    .btn{
+      background:rgba(0,255,0,0.09);
+      color:#00ff00;border:1px solid rgba(0,255,0,0.25);
+      padding:6px 8px;
+      border-radius:8px;font-size:13px;text-align:center;
+      cursor:pointer;transition:0.12s;
+      font-weight: 900;
+    }
+    .btn:hover{transform:translateY(-2px)}
+    .btn:disabled{cursor:not-allowed;opacity:0.6;transform:none; font-weight: 900 !important;}
+    .logout-btn{
+      background:linear-gradient(90deg,#2b0000,#700000);color:#fff;border:1px solid #ff3b3b;
+      font-weight: 900;
+    }
+
+    .prediction-box {
+      position: fixed;
+      bottom: 120px; 
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(to bottom, #ffeb3b, #ff0000, #ff0000);
+      border-radius: 20px;
+      border: 2px solid #fff;
+      padding: 8px 20px; 
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 15px; 
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      z-index: 99999;
+      cursor: move;
+      touch-action: none;
+      font-weight: 900;
+    }
+    
+    .prediction-box .item {
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+    }
+    
+    .prediction-box .label {
+        font-weight:900; 
+        font-size:18px; 
+        margin-bottom:6px; 
+        color:#000;
+    }
+    
+    .prediction-box .circle {
+        width:40px; 
+        height:40px; 
+        border-radius:50%; 
+        border:3px solid #fff; 
+        display:flex; 
+        align-items:center; 
+        justify-content:center; 
+        font-weight:900;
+        font-size:18px; 
+        opacity:0.2;
+        transition: opacity 0.3s, box-shadow 0.3s, background 0.3s;
+    }
+    
+    .circle.active.tai {
+      background: #00ff00;
+      opacity:1; 
+      box-shadow:0 0 10px #00ff00, 0 0 20px #00ff00;
+    }
+
+    .circle.active.xiu {
+      background: #ff0000;
+      opacity:1; 
+      box-shadow:0 0 10px #ff0000, 0 0 20px #ff0000;
+    }
+    
+    .prediction-box .logo {
+        width:55px; 
+        height:auto;
+        margin-bottom: 2px;
+    }
+    
+    .prediction-box .close-btn {
+        position:absolute;
+        top:0px;
+        right:4px;
+        cursor:pointer;
+        font-size:18px;
+        font-weight:900;
+        color:#000;
+    }
+    
+    .footer-text{
+        position:fixed;
+        bottom:8px;
+        right:12px;
+        font-size:13px;
+        color:#00ff00;
+        text-shadow:0 0 5px #00ff00,0 0 10px #00ff00;
+        z-index:50;
+        display:flex;
+        align-items: center; 
+        justify-content: flex-end;
+        line-height: 1.4;
+        padding: 5px 8px; 
+        background: rgba(0, 0, 0, 0.3); 
+        border-radius: 5px;
+        white-space: nowrap;
+        font-weight: 900;
+    }
+
+    /* Trạng thái kết nối */
+    .status-dot {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      margin-right: 6px;
+      background: #888;
+      transition: background 0.3s;
+    }
+    .status-dot.connected { background: #00ff00; box-shadow: 0 0 6px #00ff00; }
+    .status-dot.error { background: #ff3b3b; box-shadow: 0 0 6px #ff3b3b; }
+    .status-dot.loading { background: #ffeb3b; box-shadow: 0 0 6px #ffeb3b; }
+
+    @keyframes textBlinkSmooth {
+      0% { opacity: 1; }
+      50% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
+    
+    .blinking-text {
+      animation: textBlinkSmooth 1s ease-in-out infinite;
+    }
+
+    @media(max-width:480px){
+      #predictionPopup{width:200px; height: 90px; right:8px;top:60px} 
+      .prediction-circle { width: 40px; height: 40px; }
+      .dice-icon { font-size: 24px; }
+    }
+  </style>
+</head>
+<body>
+  <iframe id="fullscreenIframe" src="https://lc79a.bet" name="fullscreenIframe"></iframe>
+  <div class="panel">
+    <button id="activateBtn" class="btn">Kích Hoạt</button>
+    <button id="logoutBtn" class="btn logout-btn">Quay Về</button>
+  </div>
+  
+  <div id="predictionPopup" class="prediction-box" role="dialog" aria-hidden="true">
+    <div class="item">
+        <span class="label">TÀI</span>
+        <div id="taiCircle" class="circle tai"></div>
+    </div>
+    <img src="https://i.postimg.cc/Xvwzw7fT/3E497BE2-D59F-46D3-BCCF-FDC2E3A9929C.png" alt="Logo" class="logo">
+    <div class="item">
+        <span class="label">XỈU</span>
+        <div id="xiuCircle" class="circle xiu"></div>
+    </div>
+    <span class="close-btn">✖</span>
+  </div>
+
+  <div class="footer-text">
+    <span class="status-dot" id="statusDot"></span>
+    <div id="footerInfo" class="blinking-text">
+      Phiên: --- | Dự Đoán: ---
+    </div>
+  </div>
+
+  <script>
+  /* --- Element References --- */
+  const fullscreenIframe = document.getElementById('fullscreenIframe');
+  const activateBtn     = document.getElementById('activateBtn');
+  const logoutBtn       = document.getElementById('logoutBtn');
+  const predictionPopup = document.getElementById('predictionPopup');
+  const footerInfo      = document.getElementById('footerInfo');
+  const statusDot       = document.getElementById('statusDot');
+  const taiCircle       = document.getElementById('taiCircle');
+  const xiuCircle       = document.getElementById('xiuCircle');
+  const closePopup      = predictionPopup.querySelector('.close-btn');
+
+  /* --- State & Config --- */
+  let fetchIntervalId      = null;
+  let blinkIntervalId      = null;
+  let currentSessionId     = null;
+  let lastDataHash         = null;
+  let isFetching           = false;
+
+  const API_BASE_URL = 'https://apilc79hu-4b50.onrender.com/';
+
+  /* --- Logout --- */
+  logoutBtn.addEventListener('click', () => {
+    window.location.href = 'dashboardtool.html';
+  });
+
+  /* --- Status dot helper --- */
+  function setStatus(state) {
+    statusDot.className = 'status-dot ' + state;
+  }
+
+  /* --- Simple hash để so sánh data --- */
+  function hashData(data) {
+    return (data.phien_du_doan || data.phien_hien_tai || '') + '|' + (data.du_doan || '');
+  }
+
+  /* --- Fetch qua proxy (file:// bị CORS nên không fetch thẳng được) --- */
+  async function fetchPrediction() {
+    if (isFetching) return;
+    isFetching = true;
+    setStatus('loading');
+
+    let data = null;
+    const t = Date.now();
+    const target = encodeURIComponent(API_BASE_URL + '?t=' + t);
+    const urls = [
+      `https://corsproxy.io/?${target}`,
+      `https://api.allorigins.win/raw?url=${target}`,
+      `https://api.codetabs.com/v1/proxy?quest=${target}`,
+    ];
+
+    try {
+      data = await Promise.any(urls.map(url =>
+        fetch(url, { signal: AbortSignal.timeout(6000) })
+          .then(r => { if (!r.ok) throw new Error('not ok'); return r.json(); })
+      ));
+    } catch (e) { console.warn('Tất cả proxy lỗi:', e.message); }
+
+    isFetching = false;
+
+    if (!data) {
+      setStatus('error');
+      footerInfo.textContent = 'Đang kết nối...';
+      stopBlink();
+      return;
+    }
+
+    setStatus('connected');
+
+    const rawPrediction   = data.du_doan || '';
+    const predictedResult = rawPrediction.toLowerCase() === 'tài' ? 'T' : 'X';
+    const nextSessionId   = data.phien_du_doan || data.phien_hien_tai; // Phiên dự đoán tiếp theo
+    const formattedPred   = capitalize(rawPrediction);
+    const confidence      = (data.do_tin_cay || data.ty_le_dd) ? ` | ${data.do_tin_cay || data.ty_le_dd}` : '';
+
+    footerInfo.textContent = `Phiên: ${nextSessionId} | Dự Đoán: ${formattedPred}${confidence}`;
+
+    if (currentSessionId && currentSessionId !== nextSessionId) {
+      console.log(`Phiên thay đổi: ${currentSessionId} → ${nextSessionId}`);
+      currentSessionId = nextSessionId;
+      stopBlink();
+      startPredictionBlink(predictedResult); // Nháy ngay, không chờ 6s
+
+    } else {
+      currentSessionId = nextSessionId;
+      if (!blinkIntervalId) {
+        startPredictionBlink(predictedResult);
+      }
+    }
+  }
+
+  function capitalize(s) {
+    if (!s) return '---';
+    return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+  }
+
+  function startPredictionBlink(predictedResult) {
+    stopBlink();
+    const targetCircle = (predictedResult === 'T') ? taiCircle : xiuCircle;
+    const otherCircle  = (predictedResult === 'T') ? xiuCircle : taiCircle;
+    otherCircle.classList.remove('active');
+
+    let isOn = true;
+    blinkIntervalId = setInterval(() => {
+      if (isOn) targetCircle.classList.add('active');
+      else       targetCircle.classList.remove('active');
+      isOn = !isOn;
+    }, 500);
+  }
+
+  function stopBlink() {
+    if (blinkIntervalId) {
+      clearInterval(blinkIntervalId);
+      blinkIntervalId = null;
+      taiCircle.classList.remove('active');
+      xiuCircle.classList.remove('active');
+    }
+  }
+
+  /* --- Activate --- */
+  activateBtn.addEventListener('click', () => {
+    if (activateBtn.disabled) return;
+
+    predictionPopup.style.display = 'flex';
+    activateBtn.disabled = true;
+    activateBtn.textContent = 'Đang Chạy';
+
+    currentSessionId = null;
+    lastDataHash     = null;
+    isFetching       = false;
+    stopBlink();
+
+
+    fetchPrediction();
+    fetchIntervalId = setInterval(fetchPrediction, 1000); // Poll 1s để bắt phiên mới ngay lập tức
+  });
+
+  closePopup.addEventListener('click', () => {
+    predictionPopup.style.display = 'none';
+    if (fetchIntervalId) {
+      clearInterval(fetchIntervalId);
+      fetchIntervalId = null;
+      activateBtn.disabled = false;
+      activateBtn.textContent = 'Kích Hoạt';
+      stopBlink();
+      setStatus('');
+      footerInfo.textContent = 'Phiên: --- | Dự Đoán: ---';
+    }
+  });
+
+  /* === Kéo thả === */
+  (function makeDraggable(el) {
+    let startX = 0, startY = 0;
+    
+    const dragStart = (e) => {
+      if (e.target.classList.contains('close-btn')) return;
+      e.preventDefault();
+      const rect = el.getBoundingClientRect();
+      let clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+      let clientY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
+      startX = clientX - rect.left;
+      startY = clientY - rect.top;
+      if (el.style.position !== 'fixed' || el.style.transform !== 'none') {
+        el.style.left      = rect.left + 'px';
+        el.style.top       = rect.top + 'px';
+        el.style.position  = 'fixed';
+        el.style.right     = 'auto';
+        el.style.bottom    = 'auto';
+        el.style.transform = 'none';
+      }
+      document.addEventListener('mousemove', dragging);
+      document.addEventListener('mouseup', dragEnd);
+      document.addEventListener('touchmove', dragging, { passive: false });
+      document.addEventListener('touchend', dragEnd);
+    };
+
+    const dragging = (e) => {
+      let clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+      let clientY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
+      let newX = Math.max(0, Math.min(clientX - startX, window.innerWidth  - el.offsetWidth));
+      let newY = Math.max(0, Math.min(clientY - startY, window.innerHeight - el.offsetHeight));
+      el.style.left = newX + 'px';
+      el.style.top  = newY + 'px';
+      e.preventDefault();
+    };
+
+    const dragEnd = () => {
+      document.removeEventListener('mousemove', dragging);
+      document.removeEventListener('mouseup', dragEnd);
+      document.removeEventListener('touchmove', dragging);
+      document.removeEventListener('touchend', dragEnd);
+    };
+
+    el.addEventListener('mousedown', dragStart);
+    el.addEventListener('touchstart', dragStart);
+  })(predictionPopup);
+  </script>
+</body>
+</html>
